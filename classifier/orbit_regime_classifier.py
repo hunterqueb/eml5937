@@ -7,7 +7,7 @@ def main():
 
     train_dataset,train_dataset_labels,test_dataset,test_dataset_labels = load_dataset()
     
-    W,b,history = trainPerceptronMulticlass(train_dataset,train_dataset_labels,lr = 1e-5,epochs=100)
+    W,b,history = trainPerceptronMulticlass(train_dataset,train_dataset_labels,lr = 1e-3,epochs=5)
 
     overall, per_class = per_class_accuracy(test_dataset, test_dataset_labels, W, b)
     print("Overall accuracy:", overall)
@@ -36,8 +36,8 @@ def process_dataset(OENoThrust,dataset_labels,train_ratio = 0.7):
     SMA = OENoThrust[:,0,0].reshape((N,1))
 
     SMA = SMA / R
-    x0 = np.ones((N))
-    SMA = np.column_stack((x0,SMA))
+    # x0 = np.ones((N))
+    # SMA = np.column_stack((x0,SMA))
 
     idx = np.random.permutation(N)
     n_train = int(np.floor(train_ratio * N))
@@ -51,16 +51,6 @@ def process_dataset(OENoThrust,dataset_labels,train_ratio = 0.7):
     return X_train, y_train, X_test, y_test
 
 def trainPerceptronMulticlass(X, y, lr=1e-3, epochs=20, num_classes=None):
-    """
-    Multiclass perceptron (one-vs-rest style updates).
-
-    X: (N, D) features
-    y: (N,) integer class labels in [0, K-1]
-    lr: learning rate
-    epochs: passes over data
-    num_classes: if None, inferred from y
-    Returns: W (K, D), b (K,), history (list of (W, b) per epoch)
-    """
     X = np.asarray(X)
     y = np.asarray(y, dtype=np.int64)
     N, D = X.shape
@@ -98,18 +88,6 @@ def predict_multiclass(X, W, b):
     return np.argmax(scores, axis=1)
 
 def per_class_accuracy(X, y, W, b):
-    """
-    Compute per-class and overall accuracy.
-
-    X: (N, D) features
-    y: (N,) integer labels
-    W: (K, D) weight matrix
-    b: (K,) bias vector
-
-    Returns:
-        overall_acc (float),
-        per_class_acc (dict: class_id -> accuracy)
-    """
     X = np.asarray(X)
     y = np.asarray(y, dtype=np.int64)
     preds = np.argmax(X @ W.T + b, axis=1)
@@ -128,15 +106,6 @@ def per_class_accuracy(X, y, W, b):
 
 
 def plot_per_class_accuracy(X, y, history):
-    """
-    Plot per-class accuracy across epochs.
-
-    X: (N, D) features
-    y: (N,) true integer labels
-    history: list of (W, b) tuples per epoch, as returned by trainPerceptron_multiclass
-    """
-    X = np.asarray(X)
-    y = np.asarray(y, dtype=np.int64)
     K = int(np.max(y)) + 1
     epochs = len(history)
 
@@ -152,6 +121,7 @@ def plot_per_class_accuracy(X, y, history):
             else:
                 acc_per_class[e, c] = np.nan  # no samples of this class
     class_labels = ["leo","heo","meo","geo"]
+
     # plot
     plt.figure()
     for c in range(K):
@@ -163,22 +133,7 @@ def plot_per_class_accuracy(X, y, history):
     plt.grid(True)
     plt.tight_layout()
 
-def compute_confusion_matrix(X, y, W, b, normalize=False, plot=True):
-    """
-    Compute and optionally plot the confusion matrix.
-
-    X: (N, D) features
-    y: (N,) true integer labels
-    W: (K, D) weight matrix
-    b: (K,) bias vector
-    normalize: if True, rows are normalized to sum to 1
-    plot: if True, display the matrix with matplotlib
-
-    Returns:
-        cm (K, K) numpy array (confusion matrix)
-    """
-    X = np.asarray(X)
-    y = np.asarray(y, dtype=np.int64)
+def compute_confusion_matrix(X, y, W, b, normalize=True, plot=True):
     preds = np.argmax(X @ W.T + b, axis=1)
 
     cm = confusion_matrix(y, preds, labels=np.arange(np.max(y)+1), normalize='true' if normalize else None)
