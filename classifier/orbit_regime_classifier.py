@@ -34,19 +34,20 @@ def process_dataset(OENoThrust,dataset_labels,train_ratio = 0.7):
     
     N = y.shape[0]
     SMA = OENoThrust[:,0,0].reshape((N,1))
-
+    ECC = OENoThrust[:,0,1].reshape((N,1))
     SMA = SMA / R
-    # x0 = np.ones((N))
-    # SMA = np.column_stack((x0,SMA))
+    ECC = ECC * 10
+    x0 = np.ones((N))
+    feat = np.column_stack((x0,SMA,ECC))
 
     idx = np.random.permutation(N)
     n_train = int(np.floor(train_ratio * N))
     train_idx = idx[:n_train]
     test_idx  = idx[n_train:]
 
-    X_train = SMA[train_idx]
+    X_train = feat[train_idx]
     y_train = y[train_idx]
-    X_test  = SMA[test_idx]
+    X_test  = feat[test_idx]
     y_test  = y[test_idx]
     return X_train, y_train, X_test, y_test
 
