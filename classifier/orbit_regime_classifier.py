@@ -139,7 +139,7 @@ def compute_confusion_matrix(X, y, W, b, normalize=True, plot=True):
     cm = confusion_matrix(y, preds, labels=np.arange(np.max(y)+1), normalize='true' if normalize else None)
 
     if plot:
-        disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=np.arange(np.max(y)+1))
+        disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=['leo','heo','meo','geo'])
         disp.plot(cmap=plt.cm.Blues, values_format=".2f" if normalize else "d")
         plt.title("Confusion Matrix" + (" (Normalized)" if normalize else ""))
         plt.show()
