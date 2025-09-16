@@ -5,15 +5,79 @@ import matplotlib.pyplot as plt
 def main():
 
     train_dataset,train_dataset_labels,test_dataset,test_dataset_labels = load_dataset()
-
-    plt.figure()
-    plt.plot(train_dataset)
     
-
-    
-    
+    W,b,history = trainPerceptronMulticlass(train_dataset,train_dataset_labels,lr = 1e-12,epochs=5)
+    overall, per_class = per_class_accuracy(test_dataset, test_dataset_labels, W, b)
+    print("Overall accuracy:", overall)
+    print("Per-class breakdown:", per_class)
+    plot_per_class_accuracy(test_dataset,test_dataset_labels,history)
     plt.show()
-    return
+
+def per_class_accuracy(X, y, W, b):
+    """
+    Compute per-class and overall accuracy.
+
+    X: (N, D) features
+    y: (N,) integer labels
+    W: (K, D) weight matrix
+    b: (K,) bias vector
+
+    Returns:
+        overall_acc (float),
+        per_class_acc (dict: class_id -> accuracy)
+    """
+    X = np.asarray(X)
+    y = np.asarray(y, dtype=np.int64)
+    preds = np.argmax(X @ W.T + b, axis=1)
+
+    overall_acc = np.mean(preds == y)
+    per_class_acc = {}
+    K = int(np.max(y)) + 1
+    for c in range(K):
+        mask = (y == c)
+        if np.any(mask):
+            per_class_acc[c] = np.mean(preds[mask] == y[mask])
+        else:
+            per_class_acc[c] = np.nan  # no samples of this class
+
+    return overall_acc, per_class_acc
+
+
+def plot_per_class_accuracy(X, y, history):
+    """
+    Plot per-class accuracy across epochs.
+
+    X: (N, D) features
+    y: (N,) true integer labels
+    history: list of (W, b) tuples per epoch, as returned by trainPerceptron_multiclass
+    """
+    X = np.asarray(X)
+    y = np.asarray(y, dtype=np.int64)
+    K = int(np.max(y)) + 1
+    epochs = len(history)
+
+    # store accuracies: shape (epochs, K)
+    acc_per_class = np.zeros((epochs, K))
+
+    for e, (W, b) in enumerate(history):
+        preds = np.argmax(X @ W.T + b, axis=1)
+        for c in range(K):
+            mask = (y == c)
+            if np.any(mask):
+                acc_per_class[e, c] = np.mean(preds[mask] == y[mask])
+            else:
+                acc_per_class[e, c] = np.nan  # no samples of this class
+
+    # plot
+    plt.figure()
+    for c in range(K):
+        plt.plot(range(epochs), acc_per_class[:, c], label=f"Class {c}")
+    plt.xlabel("Epoch")
+    plt.ylabel("Accuracy")
+    plt.title("Per-Class Accuracy per Epoch")
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
 
 
 def load_dataset():
@@ -27,45 +91,73 @@ def process_dataset(OENoThrust,dataset_labels,train_ratio = 0.7):
     cleans time series into just semimajor axis, processes the labels into ints, shuffles dataset, and returns a train and test set
     '''
     R = 6378
-    SMA = OENoThrust[:,0,0]
 
     map_lbl = {"leo": 0, "meo": 1, "geo": 2}
     y = np.array([map_lbl[str(lbl).lower()] for lbl in dataset_labels], dtype=np.int64)
-
+    
     N = y.shape[0]
-    if SMA.shape[0] != N:
-        raise ValueError(f"SMA and labels mismatch: {SMA.shape[0]} vs {N}")
+    SMA = OENoThrust[:,0,0].reshape((N,1))
 
-    # 3) simple permutation split (no grouping)
+    SMA = SMA / R
+    # x0 = np.ones((N))
+    # SMA = np.column_stack((x0,SMA/R))
     idx = np.random.permutation(N)
     n_train = int(np.floor(train_ratio * N))
     train_idx = idx[:n_train]
     test_idx  = idx[n_train:]
 
-    X_train = SMA[train_idx]/R
+    X_train = SMA[train_idx]
     y_train = y[train_idx]
-    X_test  = SMA[test_idx]/R
+    X_test  = SMA[test_idx]
     y_test  = y[test_idx]
-
     return X_train, y_train, X_test, y_test
 
-def trainPerceptron(x, y, lr, epochs):
-    w = np.array((0))
-    b = 1
-    w_history = [(w.copy(), float(b))]  # epoch 0 state
+def trainPerceptronMulticlass(X, y, lr=1e-3, epochs=20, num_classes=3):
+    """
+    Multiclass perceptron (one-vs-rest style updates).
+
+    X: (N, D) features
+    y: (N,) integer class labels in [0, K-1]
+    lr: learning rate
+    epochs: passes over data
+    num_classes: if None, inferred from y
+    Returns: W (K, D), b (K,), history (list of (W, b) per epoch)
+    """
+    X = np.asarray(X)
+    y = np.asarray(y, dtype=np.int64)
+    N, D = X.shape
+    K = int(np.max(y)) + 1 if num_classes is None else int(num_classes)
+
+    # params
+    W = np.zeros((K, D), dtype=float)
+    b = np.zeros(K, dtype=float)
+
+    history = [(W.copy(), b.copy())]  # epoch 0
 
     for epoch in range(epochs):
-        for i in range(len(y)):
-            prediction = np.sign(np.dot(w,x[i]) + b)
-            if prediction != y[i]:
-                w = w + lr * y[i] * x[i]
-                b = b + lr * y[i]
-        w_history.append((w.copy(), float(b)))
-    return w_history
+        idx = np.arange(N)
 
-def evalPerceptron(x, w, b):
-    return np.sign(x @ w + b)
+        for i in idx:
+            xi = X[i]
+            yi = y[i]
+            scores = W @ xi + b               # (K,)
+            y_pred = int(np.argmax(scores))
+            if y_pred != yi:
+                # promote true class, demote predicted class
+                W[yi] += lr * xi
+                b[yi] += lr
+                W[y_pred] -= lr * xi
+                b[y_pred] -= lr
 
+        history.append((W.copy(), b.copy()))
+
+    return W, b, history
+
+def predict_multiclass(X, W, b):
+    """X: (N, D). Returns predicted labels (N,)."""
+    X = np.asarray(X)
+    scores = X @ W.T + b        # (N, K)
+    return np.argmax(scores, axis=1)
 
 
 if __name__ == "__main__":
