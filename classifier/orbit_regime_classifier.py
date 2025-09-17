@@ -143,13 +143,8 @@ def plot_decision_boundaries(X, y, W, b, class_labels=None,epoch = None):
     resolution=400
     scatter_alpha=0.7
 
-    # Identify SMA/ECC columns
-    if D == 3:
-        sma = X[:, 1]
-        ecc = X[:, 2]
-    else:
-        sma = X[:, 0]
-        ecc = X[:, 1]
+    sma = X[:, 0]
+    ecc = X[:, 1]
 
     # Bounds with padding
     def _pad(lo, hi, frac):
@@ -163,10 +158,7 @@ def plot_decision_boundaries(X, y, W, b, class_labels=None,epoch = None):
     ys = np.linspace(ecc_min, ecc_max, resolution)
     XX, YY = np.meshgrid(xs, ys)
 
-    if D == 3:
-        grid = np.column_stack([np.ones(XX.size), XX.ravel(), YY.ravel()])
-    else:
-        grid = np.column_stack([XX.ravel(), YY.ravel()])
+    grid = np.column_stack([XX.ravel(), YY.ravel()])
 
     Z = np.argmax(grid @ W.T + b, axis=1).reshape(XX.shape)
 
